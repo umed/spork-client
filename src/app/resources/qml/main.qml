@@ -6,7 +6,12 @@ ApplicationWindow {
     width: 640
     height: 480
     title: qsTr("Spork")
-    Text {
-        text: "hello world!"
+    Column {
+        Text {
+            text: "hello world!"
+        }
+        Image {
+            source: "image://videoframe/red"
+        }
     }
 }
