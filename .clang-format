@@ -1,0 +1,12 @@
+---
+# Language: Cpp
+BasedOnStyle: LLVM
+ColumnLimit: 120
+IndentWidth: 4
+# AccessModifierOffset: -4
+BreakConstructorInitializers: BeforeComma
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+...
