@@ -1,1 +1,2 @@
 subdir('app')
+subdir('ffmpeg')
