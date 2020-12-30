@@ -1,10 +1,20 @@
-#include "screen_recorder.h"
+#include "recorder.h"
 
 #include "platform_config.h"
 
 #include <fmt/format.h>
 #include <string>
 #include <utility>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavdevice/avdevice.h>
+#include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
+}
+
 namespace
 {
 
@@ -28,12 +38,14 @@ const PlatformConfig PLATFORM_CONFIG = {"avfoundation", "1"};
 
 } // namespace
 
-// pCodec = avcodec_find_decoder(pFormatCtx->streams[audioStream]->codecpar->codec_id);
-// pCodecCtx = avcodec_alloc_context3(pCodec);
-// avcodec_parameters_to_context(pCodecCtx, pFormatCtx->streams[audioStream]->codecpar);
-// avcodec_open2(pCodecCtx, pCodec, NULL);
-ScreenRecorder::ScreenRecorder()
+namespace Spork
 {
+namespace ScreenRecorder
+{
+
+Recorder::Recorder()
+{
+    // FIXME: fix memory leak in case of errors
     avdevice_register_all();
     context = avformat_alloc_context();
     input_format = av_find_input_format(PLATFORM_CONFIG.input_format.c_str());
@@ -52,16 +64,29 @@ ScreenRecorder::ScreenRecorder()
         throw std::runtime_error(error_message);
     }
     frame = av_frame_alloc();
+    frame_rgb = av_frame_alloc();
+    av_image_alloc(frame_rgb->data, frame_rgb->linesize, codec_context->width, codec_context->height,
+                   AVPixelFormat::AV_PIX_FMT_BGRA, 32);
+    frame_rgb->height = codec_context->height;
+    frame_rgb->width = codec_context->width;
+    frame_rgb->format = AVPixelFormat::AV_PIX_FMT_BGRA;
     av_init_packet(&packet);
+
+    img_convert_ctx =
+        sws_getContext(codec_context->width, codec_context->height, codec_context->pix_fmt, codec_context->width,
+                       codec_context->height, AVPixelFormat::AV_PIX_FMT_BGRA, SWS_BICUBIC, NULL, NULL, NULL);
 }
 
-ScreenRecorder::~ScreenRecorder()
+Recorder::~Recorder()
 {
     av_free(frame);
+    // FIXME: possible memory leak
+    // av_freep(frame_rgb->data[0]);
+    av_free(frame_rgb);
     avformat_close_input(&context);
 }
 
-AVFrame *ScreenRecorder::getFrame()
+AVFrame *Recorder::grabWindow()
 {
     for (;;) {
         auto error_code = av_read_frame(context, &packet);
@@ -85,7 +110,12 @@ AVFrame *ScreenRecorder::getFrame()
             std::string error_message = fmt::format("Failed to read frame: {}", av_err2str(error_code));
             throw std::runtime_error(error_message);
         } else {
-            return frame;
+            sws_scale(img_convert_ctx, frame->data, frame->linesize, 0, codec_context->height, frame_rgb->data,
+                      frame_rgb->linesize);
+            return frame_rgb;
         }
     }
 }
+
+} // namespace ScreenRecorder
+} // namespace Spork

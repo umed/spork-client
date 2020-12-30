@@ -1,2 +1,2 @@
+subdir('screenrecorder')
 subdir('app')
-subdir('ffmpeg')
